@@ -16,19 +16,28 @@ jobs:
       - name: Install prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl apt-transport-https gnupg lsb-release
+          sudo apt-get install -y curl apt-transport-https gnupg lsb-release python3-pip
+
           # Terraform
           curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
           sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
           sudo apt-get update && sudo apt-get install -y terraform
+
           # kubectl
           curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-          echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+          echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" \
+           | sudo tee /etc/apt/sources.list.d/kubernetes.list
           sudo apt-get update && sudo apt-get install -y kubectl
+
           # ansible
           sudo apt-get install -y ansible
-          # k3d
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+          # Python libraries for kubernetes.core modules
+          pip3 install kubernetes openshift
+
+          # Ensure the k8s collections are installed
+          ansible-galaxy collection install kubernetes.core community.kubernetes
 
       # 3. Build & push your image
       - name: Set up Docker Buildx
