@@ -7,16 +7,19 @@
     terraform_dir: "{{ playbook_dir }}/../terraform"
 
   tasks:
-    - name: Ensure k3d is installed
-      command: brew list k3d
-      register: k3d_check
-      failed_when: k3d_check.rc != 0
-
-    - name: Create k3d cluster if missing
+    - name: Check for k3d
       shell: |
-        if ! k3d cluster list | grep -q "{{ k3d_cluster_name }}"; then
-          k3d cluster create {{ k3d_cluster_name }} --servers 1 --k3s-arg "--disable=traefik@server:0"
+        if ! command -v k3d > /dev/null 2>&1; then
+          echo "MISSING"
+        else
+          echo "FOUND"
         fi
+      register: k3d_check
+      changed_when: false
+
+    - name: Install k3d if not present
+      when: k3d_check.stdout == "MISSING"
+      shell: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
     - name: Dump kubeconfig
       shell: k3d kubeconfig get {{ k3d_cluster_name }}
