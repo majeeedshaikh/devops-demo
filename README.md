@@ -1,46 +1,31 @@
-### This repository is no longer maintained!
+# DevOps Demo
 
-**For the most up to date test app to get you started on Heroku, head on over to [`node-js-getting-started`](https://github.com/heroku/node-js-getting-started).**
+## Overview
 
----
+This repo bootstraps a fully-automated local Kubernetes environment:
 
-# node-js-sample
+1. **k3d** “devops” cluster  
+2. **Terraform** provisions nginx-ingress  
+3. **Helm**/CRDs install Prometheus & Grafana  
+4. **Ansible** orchestrates:
+   - Docker image pull & import  
+   - Kubernetes manifests (app, ServiceMonitor, etc.)  
+   - Smoke-tests via Ingress & direct service calls  
+5. **GitHub Actions** CI pipeline:
+   - Build & push multi-arch image to GHCR  
+   - Run Ansible playbook  
+   - Verify `/health` and `/metrics` endpoints  
 
-A barebones Node.js app using [Express 4](http://expressjs.com/).
+## Prerequisites
 
-## Running Locally
+- Docker & k3d  
+- Terraform v1.x  
+- Ansible 2.9+  
+- kubectl  
 
-Make sure you have [Node.js](http://nodejs.org/) and the [Heroku Toolbelt](https://toolbelt.heroku.com/) installed.
+## Getting Started
 
-```sh
-git clone git@github.com:heroku/node-js-sample.git # or clone your own fork
-cd node-js-sample
-npm install
-npm start
-```
-
-Your app should now be running on [localhost:5000](http://localhost:5000/).
-
-## Deploying to Heroku
-
-```
-heroku create
-git push heroku master
-heroku open
-```
-
-Alternatively, you can deploy your own copy of the app using the web-based flow:
-
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
-
-## Documentation
-
-For more information about using Node.js on Heroku, see these Dev Center articles:
-
-- [10 Habits of a Happy Node Hacker](https://blog.heroku.com/archives/2014/3/11/node-habits)
-- [Getting Started with Node.js on Heroku](https://devcenter.heroku.com/articles/getting-started-with-nodejs)
-- [Heroku Node.js Support](https://devcenter.heroku.com/articles/nodejs-support)
-- [Node.js on Heroku](https://devcenter.heroku.com/categories/nodejs)
-- [Using WebSockets on Heroku with Node.js](https://devcenter.heroku.com/articles/node-websockets)
-# CI Test — Sun May 11 05:32:10 PKT 2025
-# Verification run — Sun May 11 06:37:34 PKT 2025
+1. **Clone & enter**  
+   ```bash
+   git clone https://github.com/<you>/devops-demo.git
+   cd devops-demo
