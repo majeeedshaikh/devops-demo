@@ -59,5 +59,7 @@ jobs:
             -t ghcr.io/${{ github.actor }}/devops-demo:latest .
 
       # 4. Run your Ansible pipeline (k3d + Terraform + deploy + smoke-test)
-      - name: Run deployment playbook
+        env:
+          ANSIBLE_PYTHON_INTERPRETER: /usr/bin/python3
         run: ansible-playbook ansible/playbook.yaml
+
