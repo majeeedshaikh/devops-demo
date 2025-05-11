@@ -72,14 +72,13 @@
     - name: Restart deployment
       shell: kubectl --kubeconfig={{ kubeconfig_path }} rollout restart deployment/devops-demo -n default
 
-    - name: Wait for Pod readiness
-      retries: 5
-      delay: 10
+    - name: Wait for devops-demo Deployment to be ready
       shell: |
-        kubectl --kubeconfig={{ kubeconfig_path }} get pods -l app=devops-demo -n default \
-          -o jsonpath="{.items[0].status.containerStatuses[0].ready}" | grep true
-      register: pod_ready
-      until: pod_ready.rc == 0
+        kubectl --kubeconfig={{ kubeconfig_path }} rollout status \
+          deployment/devops-demo -n default --timeout=120s
+      register: rollout_status
+      failed_when: rollout_status.rc != 0
+
 
     - name: Start ingress port-forward
       async: 10
