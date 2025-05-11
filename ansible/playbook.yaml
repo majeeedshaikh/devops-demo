@@ -22,7 +22,7 @@
         if ! k3d cluster list | grep -q "^${k3d_cluster_name}$"; then
           k3d cluster create {{ k3d_cluster_name }} \
             --servers 1 \
-            --publish "8080:80@server:0" \
+            --port "8080:80@server:0" \
             --k3s-arg "--disable=traefik@server:0"
         fi
 
