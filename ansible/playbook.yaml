@@ -17,9 +17,14 @@
       register: k3d_check
       changed_when: false
 
-    - name: Install k3d if not present
-      when: k3d_check.stdout == "MISSING"
-      shell: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+    - name: Create k3d cluster if missing
+      shell: |
+        if ! k3d cluster list | grep -q "^${k3d_cluster_name}$"; then
+          k3d cluster create {{ k3d_cluster_name }} \
+            --servers 1 \
+            --publish "8080:80@server:0" \
+            --k3s-arg "--disable=traefik@server:0"
+        fi
 
     - name: Dump kubeconfig
       shell: k3d kubeconfig get {{ k3d_cluster_name }}
