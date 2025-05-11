@@ -79,6 +79,15 @@
       register: rollout_status
       failed_when: rollout_status.rc != 0
 
+    - name: Wait for devops-demo Service endpoints to be ready
+      retries: 10
+      delay: 5
+      shell: >
+        kubectl --kubeconfig={{ kubeconfig_path }} get endpoints devops-demo-svc \
+          -n default -o jsonpath='{.subsets}'
+      register: svc_eps
+      until: svc_eps.stdout != ""
+      changed_when: false
 
     - name: Start ingress port-forward
       async: 10
