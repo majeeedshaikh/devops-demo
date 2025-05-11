@@ -100,14 +100,22 @@
         state: present
         timeout: 10
 
-    - name: Test ingress route with Host header
-      shell: |
-        curl -s -H "Host: devops.local" http://127.0.0.1:8080/health
-      register: http_test
+    - name: Wait for Ingress /health to return 200
+      uri:
+        url: http://127.0.0.1:8080/health
+        headers:
+          Host: devops.local
+        status_code: 200
+        return_content: no
+      register: ingress_resp
+      retries: 10
+      delay: 5
+      until: ingress_resp.status == 200
 
-    - name: Debug HTTP test result
+    - name: Confirm Ingress health
       debug:
-        msg: "Ingress test returned: {{ http_test.stdout }}"
+        msg: "Ingress is healthy (HTTP 200) after {{ ingress_resp.elapsed }}s"
+
 
     - name: Start service port-forward
       async: 10
