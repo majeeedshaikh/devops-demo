@@ -1,0 +1,139 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    k3d_cluster_name: devops
+    kubeconfig_path: "{{ playbook_dir }}/../devops-kubeconfig.yaml"
+    terraform_dir: "{{ playbook_dir }}/../terraform"
+
+  tasks:
+    - name: Ensure k3d is installed
+      command: brew list k3d
+      register: k3d_check
+      failed_when: k3d_check.rc != 0
+
+    - name: Create k3d cluster if missing
+      shell: |
+        if ! k3d cluster list | grep -q "{{ k3d_cluster_name }}"; then
+          k3d cluster create {{ k3d_cluster_name }} --servers 1 --k3s-arg "--disable=traefik@server:0"
+        fi
+
+    - name: Dump kubeconfig
+      shell: k3d kubeconfig get {{ k3d_cluster_name }}
+      register: kubeconfig_out
+
+    - name: Write kubeconfig file
+      copy:
+        content: "{{ kubeconfig_out.stdout }}"
+        dest: "{{ kubeconfig_path }}"
+        mode: '0600'
+
+    - name: Initialize Terraform
+      shell: terraform init
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Apply Terraform
+      shell: terraform apply -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Pull app image locally
+      shell: docker pull ghcr.io/majeeedshaikh/devops-demo:latest
+      register: pull_image
+
+    - name: Import image into k3d
+      shell: k3d image import ghcr.io/majeeedshaikh/devops-demo:latest -c {{ k3d_cluster_name }}
+      register: import_image
+
+    - name: Patch Deployment to use local image
+      kubernetes.core.k8s:
+        state: patched
+        kind: Deployment
+        namespace: default
+        name: devops-demo
+        merge_type: strategic-merge
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: app
+                    imagePullPolicy: IfNotPresent
+
+    - name: Restart deployment
+      shell: kubectl --kubeconfig={{ kubeconfig_path }} rollout restart deployment/devops-demo -n default
+
+    - name: Wait for Pod readiness
+      retries: 5
+      delay: 10
+      shell: |
+        kubectl --kubeconfig={{ kubeconfig_path }} get pods -l app=devops-demo -n default \
+          -o jsonpath="{.items[0].status.containerStatuses[0].ready}" | grep true
+      register: pod_ready
+      until: pod_ready.rc == 0
+
+    - name: Start ingress port-forward
+      async: 10
+      poll: 0
+      shell: nohup kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80 > /tmp/port-forward.log 2>&1 &
+
+    - name: Wait for ingress port-forward log
+      wait_for:
+        path: /tmp/port-forward.log
+        state: present
+        timeout: 10
+
+    - name: Test ingress route with Host header
+      shell: |
+        curl -s -H "Host: devops.local" http://127.0.0.1:8080/health
+      register: http_test
+
+    - name: Debug HTTP test result
+      debug:
+        msg: "Ingress test returned: {{ http_test.stdout }}"
+
+    - name: Start service port-forward
+      async: 10
+      poll: 0
+      shell: nohup kubectl --kubeconfig={{ kubeconfig_path }} port-forward svc/devops-demo-svc 8081:80 -n default > /tmp/svc-port-forward.log 2>&1 &
+
+    - name: Wait for service port-forward log
+      wait_for:
+        path: /tmp/svc-port-forward.log
+        state: present
+        timeout: 10
+
+    - name: Test service health directly
+      uri:
+        url: http://127.0.0.1:8081/health
+        status_code: 200
+      register: svc_health
+      ignore_errors: true
+
+    - name: Debug service health result
+      debug:
+        msg: "Service test returned: {{ svc_health }}"
+
+    - name: Describe ingress resource
+      shell: kubectl --kubeconfig={{ kubeconfig_path }} describe ingress devops-demo-ingress -n default
+      register: ing_desc
+
+    - name: Debug ingress description
+      debug:
+        var: ing_desc.stdout_lines
+
+    - name: Ingress controller logs
+      shell: kubectl logs -l app.kubernetes.io/name=ingress-nginx -n ingress-nginx | tail -n20
+      register: ing_logs
+
+    - name: Debug ingress logs
+      debug:
+        var: ing_logs.stdout_lines
+
+    - name: Final smoke-test via Ingress
+      uri:
+        url: http://127.0.0.1:8080/health
+        headers:
+          Host: devops.local
+        status_code: 200
