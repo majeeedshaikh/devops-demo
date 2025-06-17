@@ -29,3 +29,9 @@ This repo bootstraps a fully-automated local Kubernetes environment:
    ```bash
    git clone https://github.com/<you>/devops-demo.git
    cd devops-demo
+
+<!-- CI TEST TRIGGER -->
+This commit verifies that the GitHub Actions pipeline runs on each push.
+
+<!-- CI TEST TRIGGER -->
+This commit verifies that the GitHub Actions pipeline runs on each push.
